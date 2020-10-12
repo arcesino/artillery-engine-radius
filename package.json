@@ -1,0 +1,27 @@
+{
+  "name": "artillery-engine-radius",
+  "version": "1.0.0",
+  "description": "Artillery.io engine for RADIUS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arcesino/artillery-engine-radius.git"
+  },
+  "keywords": [
+    "artillery",
+    "engine",
+    "radius"
+  ],
+  "author": "Ignacio Arces",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/arcesino/artillery-engine-radius/issues"
+  },
+  "homepage": "https://github.com/arcesino/artillery-engine-radius#readme",
+  "dependencies": {
+    "radclient": "^1.0.0"
+  }
+}

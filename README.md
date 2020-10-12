@@ -1,2 +1,2 @@
 # artillery-engine-radius
-Radius engine for Artillery.io
+Artillery.io engine for RADIUS
