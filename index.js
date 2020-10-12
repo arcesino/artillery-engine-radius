@@ -1,5 +1,3 @@
-function RADIUSEngine() {
-
-};
+function RADIUSEngine() {}
 
 module.exports = RADIUSEngine;
