@@ -23,6 +23,8 @@
   },
   "homepage": "https://github.com/arcesino/artillery-engine-radius#readme",
   "dependencies": {
+    "async": "^3.2.0",
+    "debug": "^4.2.0",
     "radclient": "^1.0.0"
   },
   "devDependencies": {
