@@ -1,14 +1,36 @@
 const debug = require('debug')('engine:radius');
-const radclient = require('radclient');
-const A = require('async');
+const { promisify } = require('util');
+const radclient = promisify(require('radclient'));
+const getPort = require('get-port');
+
+const time = require('./lib/time');
 
 const getRandomInt = (max) => {
   return Math.floor(Math.random() * Math.floor(max));
 };
 
-const authRequest = (config, ee, context, callback) => {
+const randomEphemeralPortRange = (() => {
+  const from = 49152;
+  const to = 65535;
+
+  const generator = function* (from, to) {
+    while (true) {
+      const port = Math.floor(Math.random() * (to - from + 1) + from);
+      yield port;
+    }
+  };
+
+  return generator(from, to);
+})();
+
+const getFreeEphemeralPort = async () => {
+  return getPort({ port: randomEphemeralPortRange });
+};
+
+const authRequest = async (config, ee, context) => {
   const options = {
     host: context.radius.host,
+    localPort: await getFreeEphemeralPort(),
     timeout: context.radius.timeout || config.timeout,
     retries: context.radius.retries || config.retries
   };
@@ -26,18 +48,17 @@ const authRequest = (config, ee, context, callback) => {
   debug(`Radclient packet: ${JSON.stringify(packet)}`);
 
   ee.emit('request');
-  radclient(packet, options, (error, response) => {
-    if (error) {
-      const errorMsg = `Radclient error: ${error}`;
-      ee.emit('error', errorMsg);
-      return callback(errorMsg, context);
-    }
-
-    const { code } = response;
-    ee.emit('response', 0, code, context._uid);
-
-    return callback(null, context);
-  });
+  const startTime = time.getTime();
+  await radclient(packet, options)
+    .then((response) => {
+      const { code } = response;
+      const delta = time.getDelta(startTime);
+      ee.emit('response', delta, code, context._uid);
+    })
+    .catch((error) => {
+      const errorMsg = `Auth error: ${error}`;
+      throw new Error(errorMsg);
+    });
 };
 
 function RADIUSEngine(script, ee, helpers) {
@@ -48,47 +69,40 @@ function RADIUSEngine(script, ee, helpers) {
   return this;
 }
 
-RADIUSEngine.prototype.step = function (spec, ee) {
+const runStep = async (spec, ee, context) => {
   if (spec.auth) {
-    return (context, callback) => {
-      authRequest(spec.auth, ee, context, callback);
-    };
+    await authRequest(spec.auth, ee, context);
   }
+};
 
-  return (context, callback) => {
-    return callback(null, context);
-  };
+const runFlow = async (flow, ee, context) => {
+  for (const step of flow) await runStep(step, ee, context);
 };
 
 RADIUSEngine.prototype.createScenario = function (scenarioSpec, ee) {
   const { target: host, radius: config } = this.script.config;
   const { name, flow } = scenarioSpec;
 
-  return (initialContext, callback) => {
-    const init = (next) => {
-      const context = {
-        ...initialContext,
-        radius: {
-          host,
-          ...config
-        }
-      };
-      ee.emit('started');
-      return next(null, context);
-    };
-
-    const tasks = flow.map((rs) => this.step(rs, ee));
-    const steps = [init].concat(tasks);
-
-    debug(`Running scenario ${name}`);
-    A.waterfall(steps, function (err, context) {
-      if (err) {
-        debug(err);
+  return (context, callback) => {
+    const radiusContext = {
+      ...context,
+      radius: {
+        host,
+        ...config
       }
+    };
+    ee.emit('started');
+    debug(`Running scenario ${name}`);
 
-      ee.emit('done');
-      return callback(err, context);
-    });
+    runFlow(flow, ee, radiusContext)
+      .then(() => {
+        ee.emit('done');
+        return callback(null, radiusContext);
+      })
+      .catch((error) => {
+        ee.emit('error', error);
+        return callback(error, radiusContext);
+      });
   };
 };
 
