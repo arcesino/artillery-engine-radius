@@ -1,14 +1,25 @@
 const debug = require('debug')('engine:radius');
+const { template } = require('artillery/util');
 const { promisify } = require('util');
 const radclient = promisify(require('radclient'));
 const getPort = require('get-port');
 
 const time = require('./lib/time');
 
-const getRandomInt = (max) => {
+/**
+ * Generate a random identifier for a RADIUS request.
+ *
+ * RADIUS request identifiers must be 1 octect (8-bit)
+ */
+const getRandomIdentifier = () => {
+  const max = 255;
   return Math.floor(Math.random() * Math.floor(max));
 };
 
+/**
+ * Returns a generator function that generates numbers from the
+ * ephemeral port range.
+ */
 const randomEphemeralPortRange = (() => {
   const from = 49152;
   const to = 65535;
@@ -23,10 +34,16 @@ const randomEphemeralPortRange = (() => {
   return generator(from, to);
 })();
 
+/**
+ * Gets a free ephemeral port suitable for sending a RADIUS packet.
+ */
 const getFreeEphemeralPort = async () => {
   return getPort({ port: randomEphemeralPortRange });
 };
 
+/**
+ * Performs RADIUS auth request
+ */
 const authRequest = async (config, ee, context) => {
   const options = {
     host: context.radius.host,
@@ -39,7 +56,7 @@ const authRequest = async (config, ee, context) => {
   const packet = {
     code: 'Access-Request',
     secret: config.secret,
-    identifier: getRandomInt(255),
+    identifier: getRandomIdentifier(),
     attributes: [
       ['User-Name', config.username],
       ['User-Password', config.password]
@@ -81,9 +98,9 @@ const runFlow = async (flow, ee, context) => {
 
 RADIUSEngine.prototype.createScenario = function (scenarioSpec, ee) {
   const { target: host, radius: config } = this.script.config;
-  const { name, flow } = scenarioSpec;
 
   return (context, callback) => {
+    const { name, flow } = template(scenarioSpec, context);
     const radiusContext = {
       ...context,
       radius: {
