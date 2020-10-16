@@ -27,7 +27,7 @@
     "async": "^3.2.0",
     "debug": "^4.2.0",
     "get-port": "^5.1.1",
-    "radclient": "^1.0.0"
+    "radclient": "arcesino/node-radclient"
   },
   "devDependencies": {
     "eslint": "^7.11.0",
