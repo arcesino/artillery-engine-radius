@@ -47,6 +47,7 @@ const getFreeEphemeralPort = async () => {
 const authRequest = async (config, ee, context) => {
   const options = {
     host: context.radius.host,
+    port: context.radius.port,
     localPort: await getFreeEphemeralPort(),
     timeout: context.radius.timeout || config.timeout,
     retries: context.radius.retries || config.retries
